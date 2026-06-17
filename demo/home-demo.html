@@ -2,80 +2,80 @@
 <html lang="en"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Home Dashboard Card — demo</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{min-height:100vh;background:#0b0e16}
-  .view{max-width:1180px;margin:0 auto;padding:12px}
-</style>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{min-height:100vh;background:#0b0e16}.view{max-width:1180px;margin:0 auto;padding:12px}</style>
 </head><body>
   <div class="view"><home-dashboard-card id="card"></home-dashboard-card></div>
 <script type="module">
 import '../dist/home-dashboard-card.js';
-
 const states={}, entities={}, devices={dev_office:{id:'dev_office',area_id:'office'}};
 const areas={
-  master_bedroom:{area_id:'master_bedroom',name:'Master Bedroom'},
-  living_room:{area_id:'living_room',name:'Living Room'},
-  kitchen:{area_id:'kitchen',name:'Kitchen'},
-  office:{area_id:'office',name:'Office'},
-  guest_room:{area_id:'guest_room',name:'Guest Room'},
-  flynn_room:{area_id:'flynn_room',name:"Flynn's Room"},
+  master_bedroom:{area_id:'master_bedroom',name:'Master Bedroom'},living_room:{area_id:'living_room',name:'Living Room'},
+  kitchen:{area_id:'kitchen',name:'Kitchen'},office:{area_id:'office',name:'Office'},
+  guest_room:{area_id:'guest_room',name:'Guest Room'},flynn_room:{area_id:'flynn_room',name:"Flynn's Room"},
 };
-const L=(id,name,area,bri)=>{states[id]={entity_id:id,state:'on',attributes:{friendly_name:name,brightness:bri}};entities[id]=id==='light.office_desk'?{area_id:null,device_id:'dev_office'}:{area_id:area};};
-L('light.master_cans','Master Cans','master_bedroom',180);
-L('light.master_chandelier','Chandelier','master_bedroom',92);
-L('light.master_lamp','Nightstand Lamp','master_bedroom',255);
-L('light.lr_lamp','Living Room Lamp','living_room',200);
-L('light.lr_cans','Cans','living_room',255);
-L('light.lr_accent','Accent Strip','living_room',60);
-L('light.kitchen_cans','Kitchen Cans','kitchen',255);
-L('light.kitchen_island','Island Pendants','kitchen',220);
-L('light.office_desk','Desk Lamp',null,255);
-const F=(id,name,area)=>{states[id]={entity_id:id,state:'on',attributes:{friendly_name:name,percentage:66}};entities[id]={area_id:area};};
-F('fan.office','Office Fan','office');F('fan.guest','Guest Ceiling Fan','guest_room');
-const B=(id,name,dc,pos)=>{states[id]={entity_id:id,state:'open',attributes:{friendly_name:name,device_class:dc,current_position:pos}};entities[id]={area_id:null};};
-['Back Right Blind','Back Left Blind','Right Curtain','Left Curtain','Living Room Shade 1','Kitchen Window','Office Blind','Master Blackout',"Flynn's Blind","Stair Window","Hallway Shade"].forEach((n,i)=>B('cover.blind'+i,n,['blind','curtain','shade','window'][i%4],100));
+const put=(id,state,attrs,area)=>{states[id]={entity_id:id,state,attributes:attrs||{}};entities[id]={area_id:area||null};};
+// lights (some on, some off, in areas)
+const L=(id,name,area,state,bri)=>put(id,state,{friendly_name:name,brightness:bri},area);
+L('light.master_cans','Master Cans','master_bedroom','on',180);L('light.master_chandelier','Chandelier','master_bedroom','on',92);
+L('light.master_lamp','Nightstand Lamp','master_bedroom','off');L('light.lr_lamp','Living Room Lamp','living_room','on',200);
+L('light.lr_cans','Cans','living_room','on',255);L('light.lr_accent','Accent Strip','living_room','off');
+L('light.kitchen_cans','Kitchen Cans','kitchen','on',255);L('light.kitchen_island','Island Pendants','kitchen','on',220);
+L('light.office_desk','Desk Lamp','office','on',255);L('light.office_over','Overhead','office','off');
+L('light.guest_lamp','Guest Lamp','guest_room','off');L('light.flynn_ceiling',"Flynn's Ceiling",'flynn_room','on',255);
+// switches
+put('switch.living_room_fireplace','off',{friendly_name:'Fireplace'},'living_room');
+put('switch.office_monitors','on',{friendly_name:'Monitor Power'},'office');
+put('switch.kitchen_coffee','off',{friendly_name:'Coffee Maker'},'kitchen');
+// fans
+put('fan.office','on',{friendly_name:'Office Fan',percentage:66},'office');
+put('fan.guest','on',{friendly_name:'Guest Ceiling Fan',percentage:50},'guest_room');
+put('fan.master','off',{friendly_name:'Master Fan'},'master_bedroom');
+// covers — blinds open + some closed, assigned to areas
+const B=(id,name,area,dc,pos)=>put(id,pos>0?'open':'closed',{friendly_name:name,device_class:dc,current_position:pos},area);
+B('cover.lr_shade1','Living Room Shade 1','living_room','shade',100);B('cover.lr_shade2','Living Room Shade 2','living_room','shade',0);
+B('cover.master_blackout','Master Blackout','master_bedroom','shade',60);B('cover.kitchen_window','Kitchen Window','kitchen','window',100);
+B('cover.office_blind','Office Blind','office','blind',100);B('cover.flynn_blind',"Flynn's Blind",'flynn_room','blind',0);
+['Back Right Blind','Back Left Blind','Right Curtain','Left Curtain'].forEach((n,i)=>B('cover.ext'+i,n,null,['blind','curtain'][i%2],100));
 states['cover.lan_garage']={entity_id:'cover.lan_garage',state:'closed',attributes:{friendly_name:'Garage Door',device_class:'garage',current_position:0}};entities['cover.lan_garage']={area_id:null};
 // climate
-const C=(id,name,area,cur,tgt,state)=>{states[id]={entity_id:id,state:state,attributes:{friendly_name:name,current_temperature:cur,temperature:tgt,hvac_action:'idle'}};entities[id]={area_id:area};};
-C('climate.living','Living Room','living_room',72,72,'heat');
-C('climate.master','Master Bedroom','master_bedroom',69,70,'heat');
-C('climate.kids',"Kids' Wing",'flynn_room',71,70,'heat');
-// locks
-const LK=(id,name,state)=>{states[id]={entity_id:id,state:state,attributes:{friendly_name:name}};entities[id]={area_id:null};};
-LK('lock.front','Front Door','locked');LK('lock.back','Back Door','locked');LK('lock.garage_entry','Garage Entry','locked');
+const C=(id,name,area,cur,tgt,state)=>put(id,state,{friendly_name:name,current_temperature:cur,temperature:tgt,hvac_action:'idle'},area);
+C('climate.downstairs','Downstairs','living_room',69,75,'cool');C('climate.upstairs','Upstairs','master_bedroom',71,73,'cool');C('climate.master','Master',null,68,48,'off');
 // media
-const M=(id,name,area,state,title,artist)=>{states[id]={entity_id:id,state:state,attributes:{friendly_name:name,media_title:title,media_artist:artist}};entities[id]={area_id:area};};
-M('media_player.lr_tv','Living Room TV','living_room','playing','The Bear · S3E4','');
-M('media_player.office_pod','Office HomePod','office','playing','Kerala','Bonobo');
+const M=(id,name,area,state,title,artist)=>put(id,state,{friendly_name:name,media_title:title,media_artist:artist},area);
+M('media_player.lr_tv','Living Room TV','living_room','playing','The Bear · S3E4','');M('media_player.office_pod','Office HomePod','office','playing','Kerala','Bonobo');
 M('media_player.kitchen','Kitchen Display','kitchen','idle','','');
-M('media_player.master_tv','Master Bedroom TV','master_bedroom','off','','');
-// scenes
-['Movie Night','Dinner','Bedtime','Good Morning','Away','Focus','Relax','All Off'].forEach((n,i)=>{const id='scene.s'+i;states[id]={entity_id:id,state:'',attributes:{friendly_name:n}};entities[id]={area_id:null};});
+// scripts (routines + helpers to test filtering)
+const S=(id,name)=>put('script.'+id,'off',{friendly_name:name});
+['bedtime|Bedtime','morning_wake_up|Morning Wake Up','close_all_blinds|Close All Blinds','open_all_blinds|Open All Blinds','nightly_house_check|Nightly House Check','cleaners_lights_on|Cleaners - Lights On','andrew_iphone_close_garage|Close Garage','blind_set_one_tilt|Blind Set One Tilt (helper)','covers_state_resync|Covers Resync','test_notification|Test Notification'].forEach(s=>{const[id,name]=s.split('|');S(id,name);});
+// modes
+put('input_select.home_mode','Home',{friendly_name:'Home Mode',options:['Home','Away','Night','Movie','Guest','Vacation']});
+// batteries
+const BAT=(id,name,v)=>put('sensor.'+id,String(v),{friendly_name:name,device_class:'battery',unit_of_measurement:'%'});
+[['view_plus','View Plus Battery',4],['garage_fridge_batt','Garage Fridge Battery',23],['right_curtain_b','Right Curtain Battery',53],['left_curtain_b','Left Curtain Battery',66],['back_left_b','Back Left Blind Battery',72],['back_right_b','Back Right Blind Battery',80],['gray_freezer_b','Garage Gray Freezer Battery',92],['standing_freezer_b','Garage Standing Freezer Battery',97],['kitchen_fridge_b','Kitchen Fridge Battery',98],['watch_b','Apple Watch Battery',65]].forEach(([id,n,v])=>BAT(id,n,v));
+// refrigeration temps
+const T=(id,name,v)=>put('sensor.'+id,String(v),{friendly_name:name,device_class:'temperature',unit_of_measurement:'°F'});
+T('garage_gray_freezer_temperature','Garage Gray Freezer Temperature',6.08);T('garage_standing_freezer_temperature','Garage Standing Freezer Temperature',-7.96);
+T('garage_fridge_temperature','Garage Fridge Temperature',39.2);T('kitchen_fridge_temperature','Kitchen Fridge Temperature',34.16);
+// weather
+put('weather.forecast_home','partlycloudy',{friendly_name:'Forecast Home',temperature:79,temperature_unit:'°F',humidity:44,wind_speed:6,wind_speed_unit:'mph',uv_index:5,cloud_coverage:40});
 
-function makeHass(){
-  return {states,entities,devices,areas,
-    config:{unit_system:{temperature:'°F'}},
-    callService(domain,service,data){
-      const ids=Array.isArray(data.entity_id)?data.entity_id:[data.entity_id];
-      setTimeout(()=>{
-        for(const id of ids){const e=states[id];if(!e)continue;
-          if(service==='turn_off')e.state='off';
-          if(service==='close_cover'){e.state='closed';if(e.attributes.current_position!=null)e.attributes.current_position=0;}
-          if(service==='lock')e.state='locked';
-          if(service==='unlock')e.state='unlocked';
-          if(service==='media_play_pause')e.state=e.state==='playing'?'paused':'playing';
-          if(service==='set_temperature')e.attributes.temperature=data.temperature;
-        }
-        push();
-      },280);
-      return Promise.resolve();
-    }};
-}
+function fc(){const base=Date.now();const conds=['sunny','partlycloudy','rainy','cloudy','sunny','clear-night','snowy'];
+  return conds.map((c,i)=>({datetime:new Date(base+i*864e5).toISOString(),condition:c,temperature:82-i*2,templow:64-i}));}
+
+function makeHass(){return {states,entities,devices,areas,config:{unit_system:{temperature:'°F'}},
+  callService(domain,service,data,target,notify,ret){
+    if(service==='get_forecasts'){const id=(target&&target.entity_id)||(data&&data.entity_id);return Promise.resolve({response:{[id]:{forecast:fc()}}});}
+    const ids=Array.isArray(data.entity_id)?data.entity_id:[data.entity_id];
+    setTimeout(()=>{for(const id of ids){const e=states[id];if(!e)continue;
+      if(service==='turn_off')e.state='off';if(service==='turn_on')e.state='on';
+      if(service==='close_cover'){e.state='closed';if(e.attributes.current_position!=null)e.attributes.current_position=0;}
+      if(service==='open_cover'){e.state='open';if(e.attributes.current_position!=null)e.attributes.current_position=100;}
+      if(service==='media_play_pause')e.state=e.state==='playing'?'paused':'playing';
+      if(service==='set_temperature')e.attributes.temperature=data.temperature;
+      if(service==='select_option')e.state=data.option;}
+      push();},250);
+    return Promise.resolve();}};}
 const card=document.getElementById('card');
-card.setConfig({type:'custom:home-dashboard-card',name:'Andrew',categories:['active','climate','security','media','scenes','rooms'],show_brightness:true});
-function push(){card.hass=makeHass();}
-push();
-window.__card=card;
-</script>
-</body></html>
+card.setConfig({type:'custom:home-dashboard-card',name:'Andrew',show_brightness:true});
+function push(){card.hass=makeHass();}push();window.__card=card;
+</script></body></html>
