@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Active Now Card — demo</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      background: linear-gradient(135deg, #10141e, #15121f 52%, #221634);
+      font-family: -apple-system, 'Segoe UI', Roboto, system-ui, sans-serif;
+      min-height: 100vh;
+      padding: 40px 16px;
+      color: #cfd6e6;
+    }
+    .col { max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+    .placeholder {
+      background: rgba(255,255,255,.035);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 18px;
+      padding: 18px;
+      color: #8a93a6;
+      font-size: 14px;
+    }
+    h1 { font-size: 14px; color: #8a93a6; font-weight: 600; margin: 0 0 4px; }
+  </style>
+</head>
+<body>
+  <div class="col">
+    <h1>Demo dashboard column</h1>
+    <active-now-card id="card"></active-now-card>
+    <div class="placeholder">Other dashboard card (to prove overlay sits above)</div>
+    <div class="placeholder">Another card…</div>
+  </div>
+
+  <script type="module">
+    import '../dist/active-now-card.js';
+
+    // ---- mock entities ------------------------------------------------
+    const lights = [
+      ['light.master_cans', 'Master Cans', 'master_bedroom', 180],
+      ['light.master_chandelier', 'Master Chandelier', 'master_bedroom', 92],
+      ['light.master_lamp', 'Master Nightstand Lamp', 'master_bedroom', 255],
+      ['light.living_room_lamp', 'Living Room Lamp', 'living_room', 200],
+      ['light.living_room_cans', 'Living Room Cans', 'living_room', 255],
+      ['light.living_room_accent', 'Living Room Accent Strip', 'living_room', 60],
+      ['light.kitchen_cans', 'Kitchen Cans', 'kitchen', 255],
+      ['light.kitchen_island', 'Kitchen Island Pendants', 'kitchen', 220],
+      ['light.kitchen_under_cabinet', 'Kitchen Under Cabinet', 'kitchen', 120],
+      ['light.office_desk', 'Office Desk Lamp', null, 255], // area via device
+      ['light.office_overhead', 'Office Overhead', 'office', 180],
+      ['light.guest_lamp', 'Guest Room Lamp', 'guest_room', 140],
+      ['light.flynn_ceiling', "Flynn's Ceiling", 'flynn_room', 255],
+      ['light.flynn_nightlight', "Flynn's Nightlight", 'flynn_room', 28],
+      ['light.hallway', 'Hallway', null, 255], // no area -> Other
+    ];
+    const fans = [
+      ['fan.office', 'Office Fan', 'office'],
+      ['fan.guest_ceiling', 'Guest Ceiling Fan', 'guest_room'],
+    ];
+    const blinds = [
+      ['cover.back_right_blind', 'Back Right Blind', 'blind', 100],
+      ['cover.back_left_blind', 'Back Left Blind', 'blind', 100],
+      ['cover.right_curtain', 'Right Curtain', 'curtain', 80],
+      ['cover.left_curtain', 'Left Curtain', 'curtain', 80],
+      ['cover.living_shade_1', 'Living Room Shade 1', 'shade', 100],
+      ['cover.living_shade_2', 'Living Room Shade 2', 'shade', 60],
+      ['cover.kitchen_window', 'Kitchen Window', 'window', 100],
+      ['cover.office_blind', 'Office Blind', 'blind', 100],
+      ['cover.master_blackout', 'Master Blackout Shade', 'shade', 45],
+      ['cover.flynn_blind', "Flynn's Blind", 'blind', 100],
+    ];
+
+    const states = {};
+    const entities = {};
+    const devices = { dev_office: { id: 'dev_office', area_id: 'office' } };
+    const areas = {
+      master_bedroom: { area_id: 'master_bedroom', name: 'Master Bedroom' },
+      living_room: { area_id: 'living_room', name: 'Living Room' },
+      kitchen: { area_id: 'kitchen', name: 'Kitchen' },
+      office: { area_id: 'office', name: 'Office' },
+      guest_room: { area_id: 'guest_room', name: 'Guest Room' },
+      flynn_room: { area_id: 'flynn_room', name: "Flynn's Room" },
+    };
+
+    for (const [id, name, area, bri] of lights) {
+      states[id] = { entity_id: id, state: 'on', attributes: { friendly_name: name, brightness: bri } };
+      entities[id] = id === 'light.office_desk'
+        ? { area_id: null, device_id: 'dev_office' }
+        : { area_id: area };
+    }
+    for (const [id, name, area] of fans) {
+      states[id] = { entity_id: id, state: 'on', attributes: { friendly_name: name, percentage: 66 } };
+      entities[id] = { area_id: area };
+    }
+    for (const [id, name, dc, pos] of blinds) {
+      states[id] = { entity_id: id, state: 'open', attributes: { friendly_name: name, device_class: dc, current_position: pos } };
+      entities[id] = { area_id: null };
+    }
+    // garage (urgent)
+    states['cover.lan_garage'] = { entity_id: 'cover.lan_garage', state: 'open', attributes: { friendly_name: 'Lan Garage', device_class: 'garage', current_position: 100 }, last_changed: new Date(Date.now() - 4 * 60000).toISOString() };
+    entities['cover.lan_garage'] = { area_id: null };
+
+    // a few OFF / closed entities to confirm they are ignored
+    states['light.basement'] = { entity_id: 'light.basement', state: 'off', attributes: { friendly_name: 'Basement' } };
+    states['cover.front_door_blind'] = { entity_id: 'cover.front_door_blind', state: 'closed', attributes: { friendly_name: 'Closed Blind', device_class: 'blind', current_position: 0 } };
+
+    function makeHass() {
+      return {
+        states,
+        entities,
+        devices,
+        areas,
+        callService(domain, service, data) {
+          const ids = Array.isArray(data.entity_id) ? data.entity_id : [data.entity_id];
+          // simulate websocket latency before HA confirms the new state
+          setTimeout(() => {
+            for (const id of ids) {
+              const e = states[id];
+              if (!e) continue;
+              if (service === 'turn_off') e.state = 'off';
+              if (service === 'close_cover') {
+                e.state = 'closed';
+                if (e.attributes.current_position != null) e.attributes.current_position = 0;
+              }
+            }
+            push();
+          }, 300);
+          return Promise.resolve();
+        },
+      };
+    }
+
+    const card = document.getElementById('card');
+    card.setConfig({ type: 'custom:active-now-card', title: 'Active Now', group_by: 'area', show_brightness: true });
+
+    function push() { card.hass = makeHass(); }
+    push();
+    window.__card = card;
+  </script>
+</body>
+</html>

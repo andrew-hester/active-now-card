@@ -1,0 +1,32 @@
+{
+  "name": "active-now-card",
+  "version": "1.0.0",
+  "description": "A custom Home Assistant Lovelace card that shows a compact summary chip of everything that's on (lights, blinds, fans, garage) and opens a full-screen overlay to review and turn it all off, grouped by room.",
+  "type": "module",
+  "main": "dist/active-now-card.js",
+  "scripts": {
+    "build": "rollup -c",
+    "watch": "rollup -c --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "home-assistant",
+    "lovelace",
+    "custom-card",
+    "hacs",
+    "lit"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "lit": "^3.1.4"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "rollup": "^4.18.0",
+    "tslib": "^2.6.3",
+    "typescript": "^5.5.3"
+  }
+}

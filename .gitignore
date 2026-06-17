@@ -1,0 +1,5 @@
+node_modules/
+*.log
+.DS_Store
+.rollup.cache/
+# dist/ is intentionally committed so HACS can install without a build step.
