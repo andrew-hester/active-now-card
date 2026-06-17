@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Modal Dashboard — mockup</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css" />
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --amber:#FFB23E; --blue:#5BA8F2; --teal:#35D6C6; --red:#F4595B; --green:#7CD992; --violet:#b794f6; --neutral:#9aa3b4;
+    --heading:#F2F5FB; --title:#EEF1F7; --muted:#8A93A6; --soft:#c4d0ec;
+    --card:rgba(255,255,255,.035); --cardhover:rgba(255,255,255,.075); --hair:rgba(255,255,255,.07);
+  }
+  html,body{min-height:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sans-serif;
+    color:var(--title);
+    background:linear-gradient(135deg,#10141e 0%,#15121f 52%,#221634 100%) fixed;
+    min-height:100vh; padding:26px 18px 60px; position:relative; overflow-x:hidden;
+  }
+  .aurora{position:fixed;border-radius:50%;filter:blur(70px);opacity:.5;pointer-events:none;z-index:0}
+  .a1{width:520px;height:520px;left:-160px;top:-180px;background:radial-gradient(circle,#3a2a6e,transparent 70%)}
+  .a2{width:460px;height:460px;right:-150px;top:120px;background:radial-gradient(circle,#1c3a63,transparent 70%)}
+  .a3{width:420px;height:420px;left:30%;bottom:-220px;background:radial-gradient(circle,#5a2350,transparent 70%);opacity:.35}
+  .wrap{max-width:1080px;margin:0 auto;position:relative;z-index:1}
+
+  /* ---- home header ---- */
+  .greet{display:flex;align-items:flex-end;justify-content:space-between;margin:6px 4px 22px}
+  .greet h1{font-size:30px;font-weight:800;letter-spacing:-.5px;color:var(--heading)}
+  .greet .sub{font-size:14px;color:var(--muted);margin-top:4px}
+  .greet .now{font-size:13px;color:var(--soft);text-align:right}
+  .greet .now b{display:block;font-size:22px;font-weight:700;color:var(--heading);letter-spacing:-.3px}
+
+  /* ---- category grid ---- */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:16px}
+  .tile{
+    background:var(--card);border:1px solid var(--hair);border-radius:18px;padding:16px;
+    cursor:pointer;transition:transform .12s ease,border-color .15s ease,background .15s ease;
+    display:flex;flex-direction:column;gap:12px;min-height:120px;
+  }
+  .tile:hover{background:var(--cardhover);border-color:rgba(150,180,240,.32);transform:translateY(-2px)}
+  .tile:active{transform:scale(.99)}
+  .tile .top{display:flex;align-items:center;gap:12px}
+  .chip{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:21px}
+  .tile .label{font-size:16px;font-weight:700;color:var(--title)}
+  .tile .count{margin-left:auto;font-size:12px;font-weight:600;color:var(--muted);background:rgba(255,255,255,.06);padding:3px 9px;border-radius:999px}
+  .tile .summary{font-size:13px;color:var(--soft);line-height:1.45}
+  .tile .meta{margin-top:auto;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+  .dotrow{display:flex;gap:6px;align-items:center}
+  .dot{width:8px;height:8px;border-radius:50%}
+
+  /* accent chip backgrounds */
+  .c-amber{background:rgba(255,178,62,.14);color:var(--amber)}
+  .c-blue{background:rgba(91,168,242,.14);color:var(--blue)}
+  .c-teal{background:rgba(53,214,198,.14);color:var(--teal)}
+  .c-red{background:rgba(244,89,91,.16);color:var(--red)}
+  .c-green{background:rgba(124,217,146,.14);color:var(--green)}
+  .c-violet{background:rgba(183,148,246,.14);color:var(--violet)}
+  .c-neutral{background:rgba(154,163,180,.14);color:var(--neutral)}
+
+  /* ---- modal ---- */
+  .scrim{position:fixed;inset:0;background:rgba(6,8,14,.62);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);z-index:50;display:none;align-items:center;justify-content:center;animation:amBackIn .18s ease}
+  .scrim.open{display:flex}
+  .modal{
+    position:relative;width:min(1080px,95vw);height:min(880px,90vh);display:flex;flex-direction:column;
+    border-radius:26px;background:linear-gradient(150deg,#191e2c,#1b1830 60%,#241a36);
+    border:1px solid rgba(255,255,255,.09);box-shadow:0 40px 120px -30px rgba(0,0,0,.75);overflow:hidden;
+    animation:amModalIn .22s cubic-bezier(.2,.9,.3,1.05)
+  }
+  .mhead{flex:0 0 auto;padding:22px 26px 14px;background:linear-gradient(180deg,#1b2030,#1a1c2e);border-bottom:1px solid rgba(255,255,255,.06)}
+  .mtop{display:flex;align-items:flex-start;gap:16px}
+  .mtitle{font-size:25px;font-weight:800;letter-spacing:-.5px;color:var(--heading)}
+  .msub{font-size:13.5px;color:var(--muted);margin-top:3px}
+  .mactions{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .ghost{display:inline-flex;align-items:center;gap:6px;background:transparent;border:1px solid rgba(255,255,255,.12);color:#cfd6e6;border-radius:10px;padding:7px 12px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+  .ghost:hover{background:rgba(255,255,255,.06)}
+  .ghost.amber{color:var(--amber);border-color:rgba(255,178,62,.4);background:rgba(255,178,62,.08)}
+  .closeX{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);color:#cfd6e6;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:20px}
+  .closeX:hover{background:rgba(255,255,255,.12)}
+  .filters{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .fchip{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:transparent;border:1px solid rgba(255,255,255,.08);color:var(--muted)}
+  .fchip.active{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.18);color:var(--title)}
+  .fdot{width:8px;height:8px;border-radius:50%}
+  .mbody{flex:1 1 auto;overflow-y:auto;padding:20px 26px 30px}
+  .mbody::-webkit-scrollbar{width:9px}
+  .mbody::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:999px}
+
+  .cols{column-count:3;column-gap:16px}
+  @media(max-width:1080px){.cols{column-count:2}}
+  @media(max-width:720px){.cols{column-count:1}}
+  .gcard{break-inside:avoid;margin-bottom:16px;background:var(--card);border:1px solid var(--hair);border-radius:18px;padding:14px}
+  .ghead{display:flex;align-items:center;gap:9px;margin-bottom:2px}
+  .gname{font-size:15.5px;font-weight:700;color:var(--title)}
+  .pill{font-size:11.5px;font-weight:600;color:#aab3c5;background:rgba(255,255,255,.06);padding:2px 8px;border-radius:999px}
+  .ghead .link{margin-left:auto;background:none;border:none;color:var(--muted);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+  .ghead .link:hover{color:var(--title)}
+
+  .row{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.04);border-radius:13px;padding:10px 12px;margin-top:8px;cursor:pointer;min-height:44px;transition:opacity .26s ease,transform .26s ease,background .15s ease}
+  .row:hover{background:rgba(255,255,255,.075)}
+  .row.removing{opacity:0;transform:scale(.95);pointer-events:none}
+  .rchip{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;font-size:19px}
+  .rtext{flex:1;min-width:0}
+  .rname{font-size:14.5px;font-weight:600;color:var(--title);overflow-wrap:anywhere}
+  .rsub{font-size:12px;color:var(--muted);margin-top:1px}
+  .bar{height:6px;border-radius:999px;background:rgba(255,255,255,.09);margin-top:7px;overflow:hidden}
+  .fill{height:100%;border-radius:999px}
+  .toggle{width:48px;height:28px;border-radius:999px;position:relative;flex:0 0 auto;background:rgba(255,255,255,.14);transition:background .15s}
+  .toggle .knob{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:left .18s}
+  .toggle.on .knob{left:23px}
+
+  /* climate stepper */
+  .stepper{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+  .stepper button{width:30px;height:30px;border-radius:9px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--title);font-size:17px;cursor:pointer}
+  .stepper button:hover{background:rgba(255,255,255,.1)}
+  .stepper .temp{font-size:18px;font-weight:700;min-width:46px;text-align:center;color:var(--heading)}
+
+  /* scene tiles */
+  .scenes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .scene{background:rgba(255,255,255,.04);border:1px solid var(--hair);border-radius:14px;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:10px;transition:background .15s,transform .12s}
+  .scene:hover{background:rgba(255,255,255,.08)}
+  .scene:active{transform:scale(.97)}
+  .scene .nm{font-size:14px;font-weight:600;color:var(--title)}
+
+  .wide{background:var(--card);border:1px solid var(--hair);border-radius:18px;padding:16px;margin-top:2px}
+  .wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:10px;margin-top:8px}
+  .wgrid .row{margin-top:0}
+  .banner{display:flex;align-items:center;gap:14px;padding:16px 18px;border-radius:16px;margin-bottom:18px;background:linear-gradient(120deg,rgba(244,89,91,.17),rgba(244,89,91,.06));border:1px solid rgba(244,89,91,.34);animation:amDoorPulse 2.8s ease-in-out infinite}
+  .btitle{font-size:15px;font-weight:700;color:#FFDADB}
+  .bsub{font-size:12.5px;color:#E79C9D;margin-top:2px}
+  .bbtn{margin-left:auto;background:var(--red);color:#fff;border:none;border-radius:11px;padding:10px 16px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+
+  @keyframes amBackIn{from{opacity:0}}
+  @keyframes amModalIn{from{opacity:0;transform:translateY(10px) scale(.985)}}
+  @keyframes amDoorPulse{0%,100%{box-shadow:0 0 0 0 rgba(244,89,91,0)}50%{box-shadow:0 0 0 6px rgba(244,89,91,.1)}}
+  .hint{position:fixed;bottom:14px;left:0;right:0;text-align:center;font-size:12px;color:var(--muted);z-index:2}
+</style>
+</head>
+<body>
+  <div class="aurora a1"></div><div class="aurora a2"></div><div class="aurora a3"></div>
+  <div class="wrap">
+    <div class="greet">
+      <div>
+        <h1 id="greetText">Good evening, Andrew</h1>
+        <div class="sub">Everything's running smoothly · 20 things on</div>
+      </div>
+      <div class="now"><b id="clock">8:42</b><span>Tue, Jun 17 · 72° clear</span></div>
+    </div>
+    <div class="grid" id="home"></div>
+  </div>
+
+  <div class="scrim" id="scrim"><div class="modal" id="modal" onclick="event.stopPropagation()"></div></div>
+  <div class="hint">Click any card to open its modal · click outside or × to close</div>
+
+<script>
+const ICON = {bulb:'',fan:'',blind:'',garage:'',home:'',thermo:'',
+  lock:'',media:'',scene:'',room:''};
+function ti(n){return '<i class="ti ti-'+n+'"></i>';}
+
+const rooms=['Master Bedroom','Living Room','Kitchen','Office','Guest Room',"Flynn's Room"];
+
+const DATA = {
+  active:{title:'Active Now',sub:'20 things on · 6 rooms',accent:'amber',icon:'home',
+    summary:'9 lights · 11 blinds open',count:'20 on',dots:['amber','blue']},
+  climate:{title:'Climate',sub:'3 zones · avg 72°',accent:'red',icon:'thermometer',
+    summary:'Living Room 72° · Bedrooms 70°',count:'72°',dots:['red']},
+  security:{title:'Security',sub:'All locked · garage closed',accent:'green',icon:'lock',
+    summary:'3 locks secured · 0 doors open',count:'Armed',dots:['green']},
+  media:{title:'Media',sub:'2 playing',accent:'violet',icon:'device-speaker',
+    summary:'Living Room · Office',count:'2',dots:['violet']},
+  scenes:{title:'Scenes & Routines',sub:'8 available',accent:'teal',icon:'wand',
+    summary:'Movie · Dinner · Bedtime · Away…',count:'8',dots:['teal']},
+  rooms:{title:'Rooms',sub:'6 rooms',accent:'blue',icon:'layout-grid',
+    summary:'Tap a room for full control',count:'6',dots:['blue','amber','teal']},
+};
+
+function tile(key){
+  const d=DATA[key];
+  const dots=d.dots.map(c=>'<span class="dot" style="background:var(--'+c+')"></span>').join('');
+  return `<div class="tile" onclick="open_('${key}')">
+    <div class="top">
+      <div class="chip c-${d.accent}">${ti(d.icon)}</div>
+      <div class="label">${d.title}</div>
+      <div class="count">${d.count}</div>
+    </div>
+    <div class="summary">${d.summary}</div>
+    <div class="meta"><div class="dotrow">${dots}</div><span>${d.sub}</span></div>
+  </div>`;
+}
+document.getElementById('home').innerHTML = Object.keys(DATA).map(tile).join('');
+
+/* ---------- modal builders ---------- */
+function lightRow(name,pct){return rowEl('bulb','amber',name,'On · '+pct+'%',toggle(true,'amber'),bar(pct,'amber'));}
+function fanRow(name){return rowEl('wind','teal',name,'Running',toggle(true,'teal'));}
+function blindRow(name){return rowEl('window-maximize','blue',name,'Open',toggle(true,'blue'));}
+function lockRow(name,locked){return rowEl(locked?'lock':'lock-open',locked?'green':'red',name,locked?'Locked':'Unlocked',toggle(locked,'green'));}
+function mediaRow(name,track){return rowEl('player-play','violet',name,track,toggle(true,'violet'));}
+
+function toggle(on,accent){return `<div class="toggle ${on?'on':''}" style="${on?'background:var(--'+accent+')':''}" onclick="actToggle(event,this)"><span class="knob"></span></div>`;}
+function bar(pct,accent){return `<div class="bar"><div class="fill" style="width:${pct}%;background:linear-gradient(90deg,color-mix(in srgb,var(--${accent}) 85%,transparent),var(--${accent}))"></div></div>`;}
+function rowEl(icon,accent,name,sub,right,extra){
+  return `<div class="row" onclick="actRow(event,this)">
+    <div class="rchip c-${accent}">${ti(icon)}</div>
+    <div class="rtext"><div class="rname">${name}</div><div class="rsub">${sub}</div>${extra||''}</div>
+    ${right}
+  </div>`;
+}
+function gcard(name,countTxt,rowsHtml,link){
+  return `<div class="gcard"><div class="ghead"><div class="gname">${name}</div>
+    <div class="pill">${countTxt}</div>${link?`<button class="link">${link}</button>`:''}</div>${rowsHtml}</div>`;
+}
+
+const BUILD = {
+  active(){
+    const r=[
+      gcard("Master Bedroom","3 on",lightRow('Master Cans',71)+lightRow('Chandelier',36)+lightRow('Nightstand Lamp',100)),
+      gcard("Living Room","3 on",lightRow('Living Room Lamp',78)+lightRow('Cans',100)+lightRow('Accent Strip',24)),
+      gcard("Kitchen","2 on",lightRow('Kitchen Cans',100)+lightRow('Island Pendants',86)),
+      gcard("Office","2 on",lightRow('Desk Lamp',100)+fanRow('Office Fan')),
+      gcard("Guest Room","1 on",fanRow('Guest Ceiling Fan')),
+    ].join('');
+    const blinds=['Back Right Blind','Back Left Blind','Right Curtain','Left Curtain','Living Room Shade 1','Kitchen Window','Office Blind','Master Blackout','Flynn\'s Blind','Hallway Shade','Stair Window'].map(n=>blindRow(n)).join('');
+    return {filters:[['all','All','neutral','20'],['lights','Lights','amber','9'],['blinds','Blinds','blue','11'],['fans','Fans','teal','2'],['doors','Doors','red','0']],
+      action:'<button class="ghost amber">'+ti('bulb')+' Turn off all lights</button>',
+      body:`<div class="cols">${r}</div><div class="wide"><div class="ghead"><div class="rchip c-blue" style="width:34px;height:34px;font-size:17px">${ti('window-maximize')}</div><div class="gname">Blinds &amp; Curtains <span class="pill">11 open</span></div><button class="link" style="color:var(--blue)">Close all</button></div><div class="wgrid">${blinds}</div></div>`};
+  },
+  climate(){
+    const z=(name,temp,now)=>`<div class="row" style="cursor:default">
+      <div class="rchip c-red">${ti('temperature')}</div>
+      <div class="rtext"><div class="rname">${name}</div><div class="rsub">Now ${now}° · Heat to ${temp}°</div></div>
+      <div class="stepper"><button onclick="step(this,-1)">−</button><span class="temp">${temp}°</span><button onclick="step(this,1)">+</button></div></div>`;
+    return {body:`<div class="wide">${z('Living Room',72,72)}${z('Master Bedroom',70,69)}${z("Kids' Wing",70,71)}</div>`};
+  },
+  security(){
+    const banner='';
+    return {filters:[['all','All','neutral','4'],['locks','Locks','green','3'],['doors','Doors','red','1'],['cams','Cameras','blue','2']],
+      body:`<div class="wide"><div class="ghead"><div class="gname">Locks</div><div class="pill">3 secured</div><button class="link" style="color:var(--green)">Lock all</button></div>${lockRow('Front Door',true)}${lockRow('Back Door',true)}${lockRow('Garage Entry',true)}</div>
+      <div class="wide" style="margin-top:14px"><div class="ghead"><div class="gname">Doors &amp; Garage</div><div class="pill">all closed</div></div>${rowEl('garage','green','Garage Door','Closed',toggle(false,'green'))}${rowEl('door','green','Patio Slider','Closed',toggle(false,'green'))}</div>`};
+  },
+  media(){
+    return {body:`<div class="wide"><div class="ghead"><div class="gname">Now Playing</div><div class="pill">2 active</div></div>${mediaRow('Living Room TV','The Bear · S3E4')}${mediaRow('Office HomePod','Bonobo — Radio')}</div>
+      <div class="wide" style="margin-top:14px"><div class="ghead"><div class="gname">Idle</div><div class="pill">3 off</div></div>${rowEl('player-play','neutral','Kitchen Display','Paused',toggle(false,'violet'))}${rowEl('player-play','neutral','Master Bedroom TV','Off',toggle(false,'violet'))}${rowEl('player-play','neutral','Flynn\'s Speaker','Off',toggle(false,'violet'))}</div>`};
+  },
+  scenes(){
+    const list=[['Movie Night','movie','amber'],['Dinner','tools-kitchen-2','red'],['Bedtime','moon','blue'],['Good Morning','sun','amber'],['Away','shield-lock','green'],['Focus','headphones','violet'],['Relax','sofa','teal'],['All Off','power','neutral']];
+    const tiles=list.map(([n,ic,c])=>`<div class="scene" onclick="flash(this)"><div class="rchip c-${c}" style="width:36px;height:36px">${ti(ic)}</div><div class="nm">${n}</div></div>`).join('');
+    return {body:`<div class="scenes">${tiles}</div>`};
+  },
+  rooms(){
+    const tiles=rooms.map(n=>`<div class="scene" style="min-height:96px" onclick="open_('active')"><div class="rchip c-blue" style="width:38px;height:38px">${ti('door')}</div><div class="nm">${n}</div><div class="rsub" style="font-size:12px">Lights · climate · media</div></div>`).join('');
+    return {body:`<div class="scenes" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr))">${tiles}</div>`};
+  },
+};
+
+let curFilter='all';
+function open_(key){
+  const d=DATA[key]; const built=BUILD[key]();
+  const filters=(built.filters||[]).map(([k,lab,c,n],i)=>`<button class="fchip ${i===0?'active':''}" onclick="pickFilter(event,this)"><span class="fdot" style="background:var(--${c})"></span>${lab}<span style="opacity:.8">${n}</span></button>`).join('');
+  document.getElementById('modal').innerHTML=`
+    <div class="mhead">
+      <div class="mtop">
+        <div><div class="mtitle">${d.title}</div><div class="msub">${d.sub}</div></div>
+        <div class="mactions">${built.action||''}<button class="closeX" onclick="closeM()">${ti('x')}</button></div>
+      </div>
+      ${filters?`<div class="filters">${filters}</div>`:''}
+    </div>
+    <div class="mbody">${built.body}</div>`;
+  document.getElementById('scrim').classList.add('open');
+}
+function closeM(){document.getElementById('scrim').classList.remove('open');}
+document.getElementById('scrim').onclick=closeM;
+function pickFilter(e,el){e.stopPropagation();[...el.parentNode.children].forEach(c=>c.classList.remove('active'));el.classList.add('active');}
+function actRow(e,row){if(e.target.closest('.toggle'))return;removeRow(row);}
+function actToggle(e,t){e.stopPropagation();const on=t.classList.contains('on');if(on){const row=t.closest('.row');if(row)removeRow(row);else{t.classList.remove('on');t.style.background='';}}else{t.classList.add('on');}}
+function removeRow(row){row.classList.add('removing');setTimeout(()=>row.remove(),280);}
+function step(btn,dir){const t=btn.parentNode.querySelector('.temp');t.textContent=(parseInt(t.textContent)+dir)+'°';}
+function flash(el){el.style.background='rgba(255,255,255,.16)';setTimeout(()=>el.style.background='',220);}
+
+/* clock */
+function tick(){const d=new Date();let h=d.getHours()%12||12;document.getElementById('clock').textContent=h+':'+String(d.getMinutes()).padStart(2,'0');}
+tick();setInterval(tick,10000);
+</script>
+</body>
+</html>
