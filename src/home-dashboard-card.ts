@@ -591,6 +591,10 @@ class HomeDashboardModal extends LitElement {
     .row { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,.04); border-radius: 13px; padding: 10px 12px; margin-top: 8px; cursor: pointer; min-height: 44px; transition: opacity .26s ease, transform .26s ease, background .15s ease; }
     .row:hover { background: rgba(255,255,255,.075); } .row.removing { opacity: 0; transform: scale(.95); pointer-events: none; }
     .row.off .rchip { opacity: .45; }
+    .row::after { content: ''; flex: 0 0 auto; width: 15px; height: 15px; margin-left: -2px; background-color: #8A93A6; opacity: .26; transition: opacity .15s;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8.6 16.6 13.2 12 8.6 7.4 10 6l6 6-6 6z'/%3E%3C/svg%3E") center/contain no-repeat;
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8.6 16.6 13.2 12 8.6 7.4 10 6l6 6-6 6z'/%3E%3C/svg%3E") center/contain no-repeat; }
+    .row:hover::after { opacity: .5; }
     .rchip { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
     .rchip svg { width: 19px; height: 19px; fill: currentColor; }
     .rtext { flex: 1; min-width: 0; } .rname { font-size: 14.5px; font-weight: 600; color: #EEF1F7; overflow-wrap: anywhere; }
