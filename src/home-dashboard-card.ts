@@ -163,6 +163,10 @@ class HomeDashboardModal extends LitElement {
     window.setTimeout(() => { if (this._removing.delete(id)) this.requestUpdate(); }, 2200);
   }
   private _goto(cat: string): void { this.category = cat; this._filter = 'all'; this.requestUpdate(); }
+  /** Ask the card (which lives in HA's DOM tree) to open the entity more-info dialog. */
+  private _moreInfo(id: string): void {
+    if (id) this.dispatchEvent(new CustomEvent('hd-more-info', { detail: { entityId: id } }));
+  }
 
   /* -------------------- render shell -------------------- */
   override render() {
@@ -273,12 +277,12 @@ class HomeDashboardModal extends LitElement {
   }
   private _climateRow(e: HassEntity, u: string): TemplateResult {
     const cur = e.attributes.current_temperature, target = e.attributes.temperature;
-    return html`<div class="row" style="cursor:default"><div class="rchip c-red">${icon('thermometer')}</div>
+    return html`<div class="row" @click=${() => this._moreInfo(e.entity_id)}><div class="rchip c-red">${icon('thermometer')}</div>
       <div class="rtext"><div class="rname">${fname(this._hass, e)}</div>
         <div class="rsub">${cur != null ? `Now ${Math.round(Number(cur))}${u} · ` : ''}${e.state}${target != null ? ` to ${Math.round(Number(target))}${u}` : ''}</div></div>
-      <div class="stepper"><button @click=${() => this._setTemp(e, -1)}>${icon('minus')}</button>
+      <div class="stepper"><button @click=${(ev: Event) => { ev.stopPropagation(); this._setTemp(e, -1); }}>${icon('minus')}</button>
         <span class="temp">${target != null ? Math.round(Number(target)) + u : '—'}</span>
-        <button @click=${() => this._setTemp(e, 1)}>${icon('plus')}</button></div></div>`;
+        <button @click=${(ev: Event) => { ev.stopPropagation(); this._setTemp(e, 1); }}>${icon('plus')}</button></div></div>`;
   }
 
   // ---- Media ----
@@ -296,7 +300,7 @@ class HomeDashboardModal extends LitElement {
         ${active.length ? html`<div class="wide"><div class="ghead"><div class="gname">Now playing</div><div class="pill">${active.length}</div></div>
           ${active.map((e) => this._toggleRow(e.entity_id, e.state === 'playing' ? 'pause' : 'play', 'violet', fname(this._hass, e), line(e), () => this._call('media_player', 'media_play_pause', { entity_id: e.entity_id }), e.state === 'playing'))}</div>` : nothing}
         ${idle.length ? html`<div class="wide" style="margin-top:14px"><div class="ghead"><div class="gname">Idle</div><div class="pill">${idle.length}</div></div>
-          ${idle.map((e) => html`<div class="row off" style="cursor:default"><div class="rchip c-neutral">${icon('play')}</div>
+          ${idle.map((e) => html`<div class="row off" @click=${() => this._moreInfo(e.entity_id)}><div class="rchip c-neutral">${icon('play')}</div>
             <div class="rtext"><div class="rname">${fname(this._hass, e)}</div><div class="rsub">${e.state}</div></div></div>`)}</div>` : nothing}
         ${players.length === 0 ? this._empty('No players', 'No media players found.') : nothing}` };
   }
@@ -401,7 +405,7 @@ class HomeDashboardModal extends LitElement {
     const row = (e: HassEntity) => {
       const v = Math.round(parseFloat(e.state));
       const col = battColor(v);
-      return html`<div class="row" style="cursor:default"><div class="rchip c-${col}">${icon('battery')}</div>
+      return html`<div class="row" @click=${() => this._moreInfo(e.entity_id)}><div class="rchip c-${col}">${icon('battery')}</div>
         <div class="rtext"><div class="rname">${fname(this._hass, e)}</div>
           <div class="bar" style="margin-top:6px"><div class="fill" style="width:${v}%;background:${ACCENT[col]}"></div></div></div>
         <div class="bval" style="color:${ACCENT[col]}">${v}%</div></div>`;
@@ -430,12 +434,11 @@ class HomeDashboardModal extends LitElement {
     const row = (e: HassEntity) => {
       const st = this._fridgeStatus(e);
       const col = st.ok ? 'blue' : 'red';
-      const open = this._filter === e.entity_id;
       const batt = this._matchBattery(e);
-      return html`<div class="row" @click=${() => { this._filter = open ? 'all' : e.entity_id; this.requestUpdate(); }}>
+      return html`<div class="row" @click=${() => this._moreInfo(e.entity_id)}>
           <div class="rchip c-${col}">${icon('fridge')}</div>
           <div class="rtext"><div class="rname">${fname(this._hass, e).replace(/ temperature/i, '')}</div>
-            <div class="rsub">${this._isFreezer(e) ? 'Freezer' : 'Fridge'} · ${st.label}${open && batt ? ` · battery ${Math.round(parseFloat(batt.state))}%` : ''}</div></div>
+            <div class="rsub">${this._isFreezer(e) ? 'Freezer' : 'Fridge'} · ${st.label}${batt ? ` · battery ${Math.round(parseFloat(batt.state))}%` : ''}</div></div>
           <div class="bval" style="color:${ACCENT[col]}">${Math.round(parseFloat(e.state))}${u}</div></div>`;
     };
     return { title: 'Refrigeration', sub: `${units.length} unit${units.length !== 1 ? 's' : ''} · ${warm.length ? `${warm.length} warm` : 'all normal'}`,
@@ -479,46 +482,47 @@ class HomeDashboardModal extends LitElement {
   private _lightRowOff(id: string, name: string, pct: number): TemplateResult {
     const removing = this._removing.has(id);
     const showBar = this.config.show_brightness !== false;
-    return html`<div class="row ${removing ? 'removing' : ''}" @click=${() => this._off(id, 'light')}>
+    return html`<div class="row ${removing ? 'removing' : ''}" @click=${() => this._moreInfo(id)}>
       <div class="rchip c-amber">${icon('bulb')}</div>
       <div class="rtext"><div class="rname">${name}</div><div class="rsub">On · ${pct}%</div>
         ${showBar ? html`<div class="bar"><div class="fill" style="width:${pct}%;background:linear-gradient(90deg,${ACCENT.amber}d9,${ACCENT.amber})"></div></div>` : nothing}</div>
-      <div class="toggle on" style="background:${ACCENT.amber}"><span class="knob"></span></div></div>`;
+      <div class="toggle on" style="background:${ACCENT.amber}" @click=${(e: Event) => { e.stopPropagation(); this._off(id, 'light'); }}><span class="knob"></span></div></div>`;
   }
   private _roomLight(e: HassEntity): TemplateResult {
     const on = e.state === 'on', pct = on ? briPct(e) : 0;
     const showBar = this.config.show_brightness !== false && on;
-    return html`<div class="row ${on ? '' : 'off'}" @click=${() => this._call('light', on ? 'turn_off' : 'turn_on', { entity_id: e.entity_id })}>
+    return html`<div class="row ${on ? '' : 'off'}" @click=${() => this._moreInfo(e.entity_id)}>
       <div class="rchip c-amber">${icon('bulb')}</div>
       <div class="rtext"><div class="rname">${fname(this._hass, e)}</div><div class="rsub">${on ? `On · ${pct}%` : 'Off'}</div>
         ${showBar ? html`<div class="bar"><div class="fill" style="width:${pct}%;background:linear-gradient(90deg,${ACCENT.amber}d9,${ACCENT.amber})"></div></div>` : nothing}</div>
-      <div class="toggle ${on ? 'on' : ''}" style=${on ? `background:${ACCENT.amber}` : ''}><span class="knob"></span></div></div>`;
+      <div class="toggle ${on ? 'on' : ''}" style=${on ? `background:${ACCENT.amber}` : ''} @click=${(ev: Event) => { ev.stopPropagation(); this._call('light', on ? 'turn_off' : 'turn_on', { entity_id: e.entity_id }); }}><span class="knob"></span></div></div>`;
   }
   private _twoRow(e: HassEntity, ic: string, accent: keyof typeof ACCENT, domain: string, on: boolean, sub: string, service?: string): TemplateResult {
-    const onClick = () => {
+    const act = (ev: Event) => {
+      ev.stopPropagation();
       if (service) this._call(domain, service, { entity_id: e.entity_id });
       else this._call(domain, on ? 'turn_off' : 'turn_on', { entity_id: e.entity_id });
     };
-    return html`<div class="row ${on ? '' : 'off'}" @click=${onClick}>
+    return html`<div class="row ${on ? '' : 'off'}" @click=${() => this._moreInfo(e.entity_id)}>
       <div class="rchip c-${accent}">${icon(ic)}</div>
       <div class="rtext"><div class="rname">${fname(this._hass, e)}</div><div class="rsub">${sub}</div></div>
-      <div class="toggle ${on ? 'on' : ''}" style=${on ? `background:${ACCENT[accent]}` : ''}><span class="knob"></span></div></div>`;
+      <div class="toggle ${on ? 'on' : ''}" style=${on ? `background:${ACCENT[accent]}` : ''} @click=${act}><span class="knob"></span></div></div>`;
   }
   private _coverRow(e: HassEntity): TemplateResult {
     const pos = Number(e.attributes.current_position);
     const open = e.state === 'open' || pos > 0;
     const sub = open ? (!isNaN(pos) ? `Open · ${pos}%` : 'Open') : 'Closed';
-    return html`<div class="row ${open ? '' : 'off'}" @click=${() => this._call('cover', open ? 'close_cover' : 'open_cover', { entity_id: e.entity_id })}>
+    return html`<div class="row ${open ? '' : 'off'}" @click=${() => this._moreInfo(e.entity_id)}>
       <div class="rchip c-blue">${icon('blinds')}</div>
       <div class="rtext"><div class="rname">${fname(this._hass, e)}</div><div class="rsub">${sub}</div></div>
-      <div class="toggle ${open ? 'on' : ''}" style=${open ? `background:${ACCENT.blue}` : ''}><span class="knob"></span></div></div>`;
+      <div class="toggle ${open ? 'on' : ''}" style=${open ? `background:${ACCENT.blue}` : ''} @click=${(ev: Event) => { ev.stopPropagation(); this._call('cover', open ? 'close_cover' : 'open_cover', { entity_id: e.entity_id }); }}><span class="knob"></span></div></div>`;
   }
   private _toggleRow(id: string, ic: string, accent: keyof typeof ACCENT, name: string, sub: string, action: () => void, on = true): TemplateResult {
     const removing = this._removing.has(id);
-    return html`<div class="row ${removing ? 'removing' : ''}" @click=${action}>
+    return html`<div class="row ${removing ? 'removing' : ''}" @click=${() => this._moreInfo(id)}>
       <div class="rchip c-${accent}">${icon(ic)}</div>
       <div class="rtext"><div class="rname">${name}</div><div class="rsub">${sub}</div></div>
-      <div class="toggle ${on ? 'on' : ''}" style=${on ? `background:${ACCENT[accent]}` : ''}><span class="knob"></span></div></div>`;
+      <div class="toggle ${on ? 'on' : ''}" style=${on ? `background:${ACCENT[accent]}` : ''} @click=${(e: Event) => { e.stopPropagation(); action(); }}><span class="knob"></span></div></div>`;
   }
   private _empty(title: string, sub: string): TemplateResult {
     return html`<div class="empty"><div class="eico">${icon('check')}</div><h3>${title}</h3><p>${sub}</p></div>`;
@@ -654,11 +658,22 @@ class HomeDashboardCard extends LitElement {
     const el = document.createElement('home-dashboard-modal') as HomeDashboardModal;
     el.config = this._config; el.category = cat; el.hass = this._hass;
     el.addEventListener('close', this._closeModal);
+    el.addEventListener('hd-more-info', this._onMoreInfo as EventListener);
     document.body.appendChild(el);
     this._modal = el;
   }
   private _closeModal = (): void => {
-    if (this._modal) { this._modal.removeEventListener('close', this._closeModal); this._modal.remove(); this._modal = undefined; }
+    if (this._modal) {
+      this._modal.removeEventListener('close', this._closeModal);
+      this._modal.removeEventListener('hd-more-info', this._onMoreInfo as EventListener);
+      this._modal.remove();
+      this._modal = undefined;
+    }
+  };
+  private _onMoreInfo = (e: Event): void => {
+    const id = (e as CustomEvent).detail?.entityId as string | undefined;
+    this._closeModal();
+    if (id) this.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: id }, bubbles: true, composed: true }));
   };
 
   private _summary(cat: CatKey): { count: string; line: string; sub: string } {
