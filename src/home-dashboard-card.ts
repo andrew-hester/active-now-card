@@ -123,6 +123,8 @@ class HomeDashboardModal extends LitElement {
   config!: HomeDashConfig;
   category: CatKey | string = 'active';
   private _filter = 'all';
+  get filter(): string { return this._filter; }
+  set filter(v: string) { this._filter = v; }
   private _removing = new Set<string>();
   private _prevOverflow = '';
   private _forecast: ForecastDay[] | null = null;
@@ -641,6 +643,8 @@ class HomeDashboardCard extends LitElement {
   private _hass!: HomeAssistant;
   private _config!: HomeDashConfig;
   private _modal?: HomeDashboardModal;
+  private _restore?: { category: string; filter: string };
+  private _dialogClosed?: (e: Event) => void;
 
   setConfig(config: HomeDashConfig): void {
     if (!config) throw new Error('Invalid configuration');
@@ -651,7 +655,11 @@ class HomeDashboardCard extends LitElement {
   set hass(h: HomeAssistant) { this._hass = h; if (this._modal) this._modal.hass = h; this.requestUpdate(); }
   get hass(): HomeAssistant { return this._hass; }
   getCardSize(): number { return 12; }
-  override disconnectedCallback(): void { super.disconnectedCallback(); this._closeModal(); }
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this._closeModal();
+    if (this._dialogClosed) { window.removeEventListener('dialog-closed', this._dialogClosed); this._dialogClosed = undefined; }
+  }
 
   private _open(cat: string): void {
     if (this._modal) return;
@@ -672,9 +680,36 @@ class HomeDashboardCard extends LitElement {
   };
   private _onMoreInfo = (e: Event): void => {
     const id = (e as CustomEvent).detail?.entityId as string | undefined;
+    if (!id) return;
+    // Remember where we are so we can return here after the device dialog closes.
+    if (this._modal) this._restore = { category: String(this._modal.category), filter: this._modal.filter };
     this._closeModal();
-    if (id) this.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: id }, bubbles: true, composed: true }));
+    if (this._restore) {
+      const handler = (ev: Event): void => {
+        const tag = (ev as CustomEvent).detail?.dialog;
+        if (tag && tag !== 'ha-more-info-dialog') return; // ignore nested dialogs
+        window.removeEventListener('dialog-closed', handler);
+        this._dialogClosed = undefined;
+        this._reopen();
+      };
+      this._dialogClosed = handler;
+      window.addEventListener('dialog-closed', handler);
+    }
+    this.dispatchEvent(new CustomEvent('hass-more-info', { detail: { entityId: id }, bubbles: true, composed: true }));
   };
+  private _reopen(): void {
+    if (this._modal || !this._restore) return;
+    const el = document.createElement('home-dashboard-modal') as HomeDashboardModal;
+    el.config = this._config;
+    el.category = this._restore.category;
+    el.filter = this._restore.filter;
+    el.hass = this._hass;
+    el.addEventListener('close', this._closeModal);
+    el.addEventListener('hd-more-info', this._onMoreInfo as EventListener);
+    document.body.appendChild(el);
+    this._modal = el;
+    this._restore = undefined;
+  }
 
   private _summary(cat: CatKey): { count: string; line: string; sub: string } {
     const h = this._hass;

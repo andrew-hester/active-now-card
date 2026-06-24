@@ -78,4 +78,7 @@ function makeHass(){return {states,entities,devices,areas,config:{unit_system:{t
 const card=document.getElementById('card');
 card.setConfig({type:'custom:home-dashboard-card',name:'Andrew',show_brightness:true});
 function push(){card.hass=makeHass();}push();window.__card=card;
+// Simulate HA: opening more-info, then the user dismissing it (fires dialog-closed).
+window.addEventListener('hass-more-info',(e)=>{window.__lastMoreInfo=e.detail.entityId;
+  setTimeout(()=>window.dispatchEvent(new CustomEvent('dialog-closed',{detail:{dialog:'ha-more-info-dialog'},bubbles:true,composed:true})),200);});
 </script></body></html>
