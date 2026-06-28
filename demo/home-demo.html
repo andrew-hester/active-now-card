@@ -67,7 +67,8 @@ function makeHass(){return {states,entities,devices,areas,config:{unit_system:{t
     if(service==='get_forecasts'){const id=(target&&target.entity_id)||(data&&data.entity_id);return Promise.resolve({response:{[id]:{forecast:fc()}}});}
     const ids=Array.isArray(data.entity_id)?data.entity_id:[data.entity_id];
     setTimeout(()=>{for(const id of ids){const e=states[id];if(!e)continue;
-      if(service==='turn_off')e.state='off';if(service==='turn_on')e.state='on';
+      if(service==='turn_off')e.state='off';if(service==='turn_on'){e.state='on';if(data.brightness_pct!=null)e.attributes.brightness=Math.round(data.brightness_pct/100*255);}
+      if(service==='set_percentage'){e.attributes.percentage=data.percentage;e.state=data.percentage>0?'on':'off';}
       if(service==='close_cover'){e.state='closed';if(e.attributes.current_position!=null)e.attributes.current_position=0;}
       if(service==='open_cover'){e.state='open';if(e.attributes.current_position!=null)e.attributes.current_position=100;}
       if(service==='media_play_pause')e.state=e.state==='playing'?'paused':'playing';

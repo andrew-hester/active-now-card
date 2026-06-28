@@ -83,6 +83,24 @@ const fname = (hass: HomeAssistant, e: HassEntity): string =>
   e.attributes.friendly_name || friendlyName(hass, e.entity_id);
 const briPct = (e: HassEntity): number =>
   typeof e.attributes.brightness === 'number' ? Math.round((e.attributes.brightness / 255) * 100) : 100;
+/** A light can be dimmed if it advertises a color mode beyond on/off (or already reports brightness). */
+function lightDimmable(e: HassEntity): boolean {
+  const modes = e.attributes.supported_color_modes as string[] | undefined;
+  if (Array.isArray(modes)) return modes.some((m) => m !== 'onoff');
+  if (typeof e.attributes.brightness === 'number') return true;
+  return (Number(e.attributes.supported_features) & 1) === 1; // legacy SUPPORT_BRIGHTNESS
+}
+/** A fan supports a variable speed if it advertises SET_SPEED or reports a percentage. */
+function fanHasSpeed(e: HassEntity): boolean {
+  if ((Number(e.attributes.supported_features) & 1) === 1) return true; // SET_SPEED
+  return e.attributes.percentage != null || e.attributes.percentage_step != null;
+}
+/** Current fan speed as a 0–100 percentage. */
+function fanPct(e: HassEntity): number {
+  const p = e.attributes.percentage;
+  if (typeof p === 'number') return Math.round(p);
+  return e.state === 'on' ? 100 : 0;
+}
 function tempUnit(hass: HomeAssistant): string {
   const u = (hass as unknown as { config?: { unit_system?: { temperature?: string } } }).config;
   return u?.unit_system?.temperature || '°';
@@ -129,6 +147,10 @@ class HomeDashboardModal extends LitElement {
   private _prevOverflow = '';
   private _forecast: ForecastDay[] | null = null;
   private _forecastFor = '';
+  /** Sliders currently being dragged → keep their value from being reset by live hass updates. */
+  private _dragging = new Set<string>();
+  private _dragValue = new Map<string, number>();
+  private _slideThrottle = new Map<string, number>();
 
   set hass(h: HomeAssistant) {
     this._hass = h;
@@ -245,7 +267,7 @@ class HomeDashboardModal extends LitElement {
       return html`<div class="gcard"><div class="ghead"><div class="gname">${r.name}</div><div class="pill">${n} on</div>
         <button class="link" @click=${() => this._offMany([...r.lights, ...r.fans], 'light')}>Turn off</button></div>
         ${ls.map((l) => this._lightRowOff(l.entity_id, l.name, l.brightnessPct ?? 100))}
-        ${fs.map((fn) => this._toggleRow(fn.entity_id, 'fan', 'teal', fn.name, 'Running', () => this._off(fn.entity_id, 'fan')))}</div>`;
+        ${fs.map((fn) => { const fe = this._hass.states[fn.entity_id]; return fe ? this._fanRow(fe, true) : nothing; })}</div>`;
     }).filter(Boolean);
     const blindsZone = (f === 'all' || f === 'blinds') && m.blinds.length ? html`
       <div class="wide"><div class="ghead"><div class="rchip c-blue">${icon('blinds')}</div>
@@ -390,7 +412,7 @@ class HomeDashboardModal extends LitElement {
           ${lights.some((e) => e.state === 'on') ? html`<button class="link" @click=${() => this._call('light', 'turn_off', { entity_id: lights.map((l) => l.entity_id) })}>All off</button>` : nothing}</div>
           ${lights.map((e) => this._roomLight(e))}</div>` : nothing}
         ${group('Switches', switches.map((e) => this._twoRow(e, 'sw', 'teal', 'switch', e.state === 'on', e.state === 'on' ? 'On' : 'Off')))}
-        ${group('Fans', fans.map((e) => this._twoRow(e, 'fan', 'teal', 'fan', e.state === 'on', e.state === 'on' ? 'Running' : 'Off')))}
+        ${group('Fans', fans.map((e) => this._fanRow(e, false)))}
         ${group('Shades', covers.map((e) => this._coverRow(e)))}
         ${climate.length ? html`<div class="wide" style="margin-top:14px"><div class="ghead"><div class="gname">Climate</div><div class="pill">${climate.length}</div></div>${climate.map((e) => this._climateRow(e, u))}</div>` : nothing}
         ${media.length ? html`<div class="wide" style="margin-top:14px"><div class="ghead"><div class="gname">Media</div><div class="pill">${media.length}</div></div>
@@ -481,22 +503,76 @@ class HomeDashboardModal extends LitElement {
   }
 
   /* -------------------- row atoms -------------------- */
+  /**
+   * A draggable level slider (brightness / fan speed). Lives inside `.rtext`.
+   * Drags fire `commit(pct)` (throttled live, plus a final on release). While a
+   * slider is being dragged we ignore the live hass-driven value so the thumb
+   * doesn't jump under the finger.
+   */
+  private _slider(id: string, pct: number, color: string, commit: (pct: number) => void): TemplateResult {
+    const shown = this._dragging.has(id) ? (this._dragValue.get(id) ?? pct) : pct;
+    const track = (p: number) => `linear-gradient(90deg,${color} ${p}%,rgba(255,255,255,.10) ${p}%)`;
+    const stop = (e: Event) => e.stopPropagation();
+    const begin = (e: Event) => { this._dragging.add(id); this._dragValue.set(id, shown); e.stopPropagation(); };
+    const onInput = (e: Event) => {
+      const el = e.target as HTMLInputElement;
+      const p = Number(el.value);
+      this._dragging.add(id);
+      this._dragValue.set(id, p);
+      el.style.setProperty('--track', track(p)); // live fill without a full re-render
+      const now = Date.now();
+      if (now - (this._slideThrottle.get(id) ?? 0) > 180) { this._slideThrottle.set(id, now); commit(p); }
+    };
+    const onChange = (e: Event) => {
+      const p = Number((e.target as HTMLInputElement).value);
+      this._slideThrottle.set(id, Date.now());
+      commit(p);
+      this._dragging.delete(id);
+      this._dragValue.delete(id);
+    };
+    return html`<input class="slider" type="range" min="0" max="100" step="1" aria-label="Level"
+      .value=${String(shown)} style="--track:${track(shown)};--thumb:${color}"
+      @click=${stop} @pointerdown=${begin} @touchstart=${begin}
+      @input=${onInput} @change=${onChange} />`;
+  }
+
+  /** Fan row with an optional speed slider. `removeOnOff` animates the row out (Active Now). */
+  private _fanRow(e: HassEntity, removeOnOff: boolean): TemplateResult {
+    const id = e.entity_id;
+    const on = e.state === 'on';
+    const speed = fanHasSpeed(e);
+    const pct = fanPct(e);
+    const removing = this._removing.has(id);
+    const sub = on ? (speed ? `Running · ${pct}%` : 'Running') : 'Off';
+    const showSlider = speed && on;
+    return html`<div class="row ${on ? '' : 'off'} ${removing ? 'removing' : ''}" @click=${() => this._moreInfo(id)}>
+      <div class="rchip c-teal">${icon('fan')}</div>
+      <div class="rtext"><div class="rname">${fname(this._hass, e)}</div><div class="rsub">${sub}</div>
+        ${showSlider ? this._slider(id, pct, ACCENT.teal, (p) => { this._setFan(id, p); if (p <= 0 && removeOnOff) this._removeRow(id); }) : nothing}</div>
+      <div class="toggle ${on ? 'on' : ''}" style=${on ? `background:${ACCENT.teal}` : ''}
+        @click=${(ev: Event) => { ev.stopPropagation(); if (on && removeOnOff) this._removeRow(id); this._call('fan', on ? 'turn_off' : 'turn_on', { entity_id: id }); }}><span class="knob"></span></div></div>`;
+  }
+
   private _lightRowOff(id: string, name: string, pct: number): TemplateResult {
     const removing = this._removing.has(id);
+    const e = this._hass.states[id];
+    const livePct = e ? briPct(e) : pct;
     const showBar = this.config.show_brightness !== false;
+    const dimmable = e ? lightDimmable(e) : true;
     return html`<div class="row ${removing ? 'removing' : ''}" @click=${() => this._moreInfo(id)}>
       <div class="rchip c-amber">${icon('bulb')}</div>
-      <div class="rtext"><div class="rname">${name}</div><div class="rsub">On · ${pct}%</div>
-        ${showBar ? html`<div class="bar"><div class="fill" style="width:${pct}%;background:linear-gradient(90deg,${ACCENT.amber}d9,${ACCENT.amber})"></div></div>` : nothing}</div>
-      <div class="toggle on" style="background:${ACCENT.amber}" @click=${(e: Event) => { e.stopPropagation(); this._off(id, 'light'); }}><span class="knob"></span></div></div>`;
+      <div class="rtext"><div class="rname">${name}</div><div class="rsub">On${dimmable ? ` · ${livePct}%` : ''}</div>
+        ${showBar && dimmable ? this._slider(id, livePct, ACCENT.amber, (p) => { this._setLight(id, p); if (p <= 0) this._removeRow(id); }) : nothing}</div>
+      <div class="toggle on" style="background:${ACCENT.amber}" @click=${(ev: Event) => { ev.stopPropagation(); this._off(id, 'light'); }}><span class="knob"></span></div></div>`;
   }
   private _roomLight(e: HassEntity): TemplateResult {
     const on = e.state === 'on', pct = on ? briPct(e) : 0;
-    const showBar = this.config.show_brightness !== false && on;
+    const dimmable = lightDimmable(e);
+    const showSlider = this.config.show_brightness !== false && on && dimmable;
     return html`<div class="row ${on ? '' : 'off'}" @click=${() => this._moreInfo(e.entity_id)}>
       <div class="rchip c-amber">${icon('bulb')}</div>
-      <div class="rtext"><div class="rname">${fname(this._hass, e)}</div><div class="rsub">${on ? `On · ${pct}%` : 'Off'}</div>
-        ${showBar ? html`<div class="bar"><div class="fill" style="width:${pct}%;background:linear-gradient(90deg,${ACCENT.amber}d9,${ACCENT.amber})"></div></div>` : nothing}</div>
+      <div class="rtext"><div class="rname">${fname(this._hass, e)}</div><div class="rsub">${on ? `On${dimmable ? ` · ${pct}%` : ''}` : 'Off'}</div>
+        ${showSlider ? this._slider(e.entity_id, pct, ACCENT.amber, (p) => this._setLight(e.entity_id, p)) : nothing}</div>
       <div class="toggle ${on ? 'on' : ''}" style=${on ? `background:${ACCENT.amber}` : ''} @click=${(ev: Event) => { ev.stopPropagation(); this._call('light', on ? 'turn_off' : 'turn_on', { entity_id: e.entity_id }); }}><span class="knob"></span></div></div>`;
   }
   private _twoRow(e: HassEntity, ic: string, accent: keyof typeof ACCENT, domain: string, on: boolean, sub: string, service?: string): TemplateResult {
@@ -545,6 +621,14 @@ class HomeDashboardModal extends LitElement {
     if (!ids.length) return;
     ids.forEach((id) => this._removeRow(id));
     this._call(domain, domain === 'cover' ? 'close_cover' : 'turn_off', { entity_id: ids });
+  }
+  private _setLight(id: string, pct: number): void {
+    if (pct <= 0) this._call('light', 'turn_off', { entity_id: id });
+    else this._call('light', 'turn_on', { entity_id: id, brightness_pct: pct });
+  }
+  private _setFan(id: string, pct: number): void {
+    if (pct <= 0) this._call('fan', 'turn_off', { entity_id: id });
+    else this._call('fan', 'set_percentage', { entity_id: id, percentage: pct });
   }
   private _setTemp(e: HassEntity, delta: number): void {
     const cur = Number(e.attributes.temperature ?? e.attributes.current_temperature ?? 70);
@@ -601,6 +685,14 @@ class HomeDashboardModal extends LitElement {
     .rsub { font-size: 12px; color: #8A93A6; margin-top: 1px; }
     .bval { font-size: 15px; font-weight: 700; flex: 0 0 auto; }
     .bar { height: 6px; border-radius: 999px; background: rgba(255,255,255,.09); margin-top: 7px; overflow: hidden; } .bar .fill { height: 100%; border-radius: 999px; }
+    .slider { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 22px; margin: 8px 0 1px; background: transparent; cursor: pointer; touch-action: none; }
+    .slider:focus { outline: none; }
+    .slider::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: var(--track); }
+    .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: -5px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); border: 1.5px solid var(--thumb, #fff); }
+    .slider::-moz-range-track { height: 6px; border-radius: 999px; background: rgba(255,255,255,.10); }
+    .slider::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--thumb, #fff); }
+    .slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); border: 1.5px solid var(--thumb, #fff); }
+    .slider:active::-webkit-slider-thumb { transform: scale(1.15); } .slider:active::-moz-range-thumb { transform: scale(1.15); }
     .toggle { width: 48px; height: 28px; border-radius: 999px; position: relative; flex: 0 0 auto; background: rgba(255,255,255,.14); }
     .toggle .knob { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: left .18s; }
     .toggle.on .knob { left: 23px; }
